@@ -101,11 +101,137 @@ f.	Agregar productos: Utilizar la instancia la clase 'Order', del paso c y llama
 
 
 """
-#Write your code here
-from users import *
 
-    
+"""
+Módulo principal que lanza el sistema de comida rápida.
+"""
+
+#Importo dependencias y de modulos creados
+from util.file_manager import CSVFileManager
+from util.converter import UserConverter, ProductConverter
+from orders.order import Order
+
 class PrepareOrder:
- #Write your code here
- pass
+    """
+    Lanzamos la clase que controla el programa de comida rápida.
+    """
+    def __init__(self):
+        """Inicializa las listas de cajeros, clientes y productos."""
+        self.lista_cajeros = []
+        self.lista_clientes = []
+        self.lista_productos = []
 
+    def cargar_datos(self):
+        """
+        Muestro los datos de los CSV indicados.
+        """
+        print("--- Cargando datos desde archivos CSV ---")
+        
+        # convierto los usuaris
+        convertidor_usuarios = UserConverter()
+        
+        # 1. Cargo cajeros
+        df_cajeros = CSVFileManager("data/cashiers.csv").read()
+        self.lista_cajeros = convertidor_usuarios.convert(df_cajeros, "cashier")
+        print("\n[Cajeros Registrados]")
+        convertidor_usuarios.print(self.lista_cajeros)
+
+        # 2. Cargo clientes
+        df_clientes = CSVFileManager("data/customers.csv").read()
+        self.lista_clientes = convertidor_usuarios.convert(df_clientes, "customer")
+        print("\n[Clientes Registrados]")
+        convertidor_usuarios.print(self.lista_clientes)
+
+        # 3. Cargo productos
+        convertidor_productos = ProductConverter()
+        
+        df_hamburguesas = CSVFileManager("data/hamburgers.csv").read()
+        self.lista_productos.extend(convertidor_productos.convert(df_hamburguesas, "hamburger"))
+        
+        df_sodas = CSVFileManager("data/sodas.csv").read()
+        self.lista_productos.extend(convertidor_productos.convert(df_sodas, "soda"))
+        
+        df_bebidas = CSVFileManager("data/drinks.csv").read()
+        self.lista_productos.extend(convertidor_productos.convert(df_bebidas, "drink"))
+        
+        df_happy = CSVFileManager("data/happyMeal.csv").read()
+        self.lista_productos.extend(convertidor_productos.convert(df_happy, "happymeal"))
+        
+        print("\n[Productos cargados]")
+        convertidor_productos.print(self.lista_productos)
+        print("-" * 60 + "\n")
+
+    def buscar_cajero(self, dni: str):
+        """Busca cajero por DNI. Si no existe devuelve None."""
+        for cajero in self.lista_cajeros:
+            if str(cajero.dni).strip() == dni.strip():
+                return cajero
+        return None
+
+    def buscar_cliente(self, dni: str):
+        """Busca cliente por DNI. Si no existe devuelve None."""
+        for cliente in self.lista_clientes:
+            if str(cliente.dni).strip() == dni.strip():
+                return cliente
+        return None
+
+    def buscar_producto(self, id_producto: str):
+        """Busca producto por ID. Si no existe devuelve None."""
+        for producto in self.lista_productos:
+            if str(producto.id).strip() == id_producto.strip():
+                return producto
+        return None
+
+    def ejecutar_menu(self):
+        """Controlo por pantalla los pasos a la hora de pedir los datos de la orden."""
+
+        self.cargar_datos()
+        
+        print("=== INICIO DE PREPARACIÓN DE LA ORDEN ===")
+        
+        # Pido cajero y valido su existencia
+        cajero_actual = None
+        while cajero_actual is None:
+            dni_entrada = input("Introduce DNI cajero: ").strip()
+            cajero_actual = self.buscar_cajero(dni_entrada)
+            if cajero_actual:
+                print(f"Cajero seleccionado -> {cajero_actual.name}")
+            else:
+                print("Cajero no encontrado. Inténtalo de nuevo.")
+
+        # Pido cliente y valido su existencia
+        cliente_actual = None
+        while cliente_actual is None:
+            dni_entrada = input("Introduce DNI cliente: ").strip()
+            cliente_actual = self.buscar_cliente(dni_entrada)
+            if cliente_actual:
+                print(f"Cliente seleccionado -> {cliente_actual.name}")
+            else:
+                print("Cliente no encontrado. Inténtalo de nuevo.")
+
+        # Inicialización de la Orden de Compra (Inyección de dependencias de actores)
+        orden_nueva = Order(cajero_actual, cliente_actual)
+
+        # Entrada interactiva de ítems al carrito
+        print("\n--- Selección de productos ---")
+        respuesta_usuario = "si"
+        
+        while respuesta_usuario.lower() == "si":
+            id_entrada = input("Introduce product id: ").strip()
+            producto_seleccionado = self.buscar_producto(id_entrada)
+            
+            if producto_seleccionado:
+                print(f"Agregado con éxito: {producto_seleccionado.name} ({producto_seleccionado.price} €)")
+                orden_nueva.add(producto_seleccionado)
+            else:
+                print("ID de producto no válido. No se pudo agregar.")
+                
+            respuesta_usuario = input("¿Quieres agregar otro producto? (si/no): ").strip()
+
+        # Renderizado final del ticket de venta
+        orden_nueva.show()
+
+# Punto de entrada de la aplicación
+if __name__ == "__main__":
+    aplicacion = PrepareOrder()
+    aplicacion.ejecutar_menu()
